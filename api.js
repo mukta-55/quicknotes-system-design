@@ -33,7 +33,13 @@ function showNote(note) {
   const body = document.createElement("p");
   body.textContent = note.body;
 
-  li.append(title, body);
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Delete";
+  deleteBtn.addEventListener("click", function () {
+    deleteNote(note.id, li, deleteBtn);
+  });
+
+  li.append(title, body, deleteBtn);
   notesList.appendChild(li);
   return li;
 }
@@ -108,3 +114,39 @@ async function createNote(event) {
 }
 
 noteForm.addEventListener("submit", createNote);
+
+/*
+  JSONPlaceholder is a practice API. It accepts DELETE requests but does not
+  really store or remove anything, and notes created with POST (id 101) are not
+  saved on the server either. When I tested, deleting a newly created note still
+  returned status 200, so the server cannot tell us whether the note really
+  existed. My approach: send the DELETE request, and when the server answers OK,
+  remove the note from the page. As a fallback, a 404 (not found) is treated as
+  "already gone" and also removes the note from the page. Any other failure keeps
+  the note on the page and shows an error.
+*/
+async function deleteNote(id, li, deleteBtn) {
+  setStatus("Deleting note...", "");
+  deleteBtn.disabled = true;
+
+  try {
+    const response = await fetch(API_URL + "/" + id, { method: "DELETE" });
+
+    if (response.ok) {
+      li.remove();
+      setStatus("Note deleted (status " + response.status + ").", "success");
+    } else if (response.status === 404) {
+      li.remove();
+      setStatus(
+        "Note removed from the list (the practice server has no stored copy).",
+        "success",
+      );
+    } else {
+      throw new Error("Delete failed with status " + response.status);
+    }
+  } catch (error) {
+    deleteBtn.disabled = false;
+    setStatus("Could not delete the note. Please try again.", "error");
+    console.error(error);
+  }
+}
